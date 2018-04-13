@@ -1,0 +1,45 @@
+#+TITLE: mqtt-mode -- publish and subscribe to MQTT
+
+
+* Overview
+
+mqtt-mode provides a major mode for interaction with MQTT servers.
+
+* Dependencies
+
+This mode makes use of ~mosquitto_pub~ and ~mosquitto_sub~ from the
+[[https://mosquitto.org/][Mosquitto]] MQTT server. Therefore ~mosquitto~ must be installed. They
+are sometimes distributed as separate package.
+
+Debian:
+
+#+BEGIN_SRC sh :results verbatim
+apt install mosquitto-clients
+#+END_SRC
+
+Gentoo:
+
+#+BEGIN_SRC sh :results verbatim
+emerge mosquitto
+#+END_SRC
+
+* Installation
+
+To use this mode, add the repository to your load path, load it and
+enable the major mode:
+
+#+BEGIN_SRC emacs-lisp
+(add-to-list 'load-path "~/path/to/mqtt-mode/")
+(require 'mqtt-mode)
+(mqtt-mode)
+#+END_SRC
+
+* Configuration
+
+For configuration options, please look at the customization group
+~mqtt-mode~. Most importantly, you should probably configure
+- ~mqtt-host~ — host name of MQTT server
+- ~mqtt-port~ — port of MQTT server
+- ~mqtt-username~ — username for MQTT server
+- ~mqtt-password~ — password for MQTT server
+- ~mqtt-topic~ — topic to subscribe to
