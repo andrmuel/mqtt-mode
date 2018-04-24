@@ -33,11 +33,9 @@
   "MQTT support."
   :group 'tools)
 
-(defcustom mqtt-parent-mode 'fundamental-mode
-  "Parent mode for MQTT mode."
-  :package-version '(mqtt-mode . "0.1.0")
-  :group 'mqtt
-  :type 'function)
+(defconst mqtt-pub-bin "mosquitto_pub")
+
+(defconst mqtt-sub-bin "mosquitto_sub")
 
 (defcustom mqtt-host "localhost"
   "MQTT server host name."
@@ -51,18 +49,6 @@
   :group 'mqtt
   :type 'integer)
 
-(defcustom mqtt-subscribe-topic "#"
-  "Topic to subscribe to."
-  :package-version '(mqtt-mode . "0.1.0")
-  :group 'mqtt
-  :type 'string)
-
-(defcustom mqtt-publish-topic "/" ;; TODO what to use here?
-  "Topic to publish to."
-  :package-version '(mqtt-mode . "0.1.0")
-  :group 'mqtt
-  :type 'string)
-
 (defcustom mqtt-username nil
   "User name for MQTT server."
   :package-version '(mqtt-mode . "0.1.0")
@@ -75,22 +61,47 @@
   :group 'mqtt
   :type 'string)
 
-(defconst mqtt-pub-bin "mosquitto_pub")
+(defcustom mqtt-subscribe-topic "#"
+  "Topic to subscribe to."
+  :package-version '(mqtt-mode . "0.1.0")
+  :group 'mqtt
+  :type 'string)
 
-(defconst mqtt-sub-bin "mosquitto_sub")
+(defcustom mqtt-publish-topic ""
+  "Topic to publish to."
+  :package-version '(mqtt-mode . "0.1.0")
+  :group 'mqtt
+  :type 'string)
+
+(defcustom mqtt-timestamp-format "[%y-%m-%d %H:%M:%S]\n"
+  "Format for timestamps for incoming messages (input for
+format-time-string)."
+  :package-version '(mqtt-mode . "0.1.0")
+  :group 'mqtt
+  :type 'string)
+
+(defcustom mqtt-comint-prompt "---> "
+  "Format for timestamps for incoming messages (input for
+format-time-string)."
+  :package-version '(mqtt-mode . "0.1.0")
+  :group 'mqtt
+  :type 'string)
 
 (define-derived-mode mqtt-mode comint-mode "MQTT Mode"
   "Major mode for MQTT interaction.
 
 \\<mqtt-mode-map>"
-  (setq-local comint-prompt-regexp "---> ")
+  (setq-local comint-prompt-regexp (regexp-quote mqtt-comint-prompt))
   (setq-local comint-prompt-read-only t)
-  (add-hook 'comint-preoutput-filter-functions 'mqtt-output-filter t t)
+  (add-hook 'comint-preoutput-filter-functions 'mqtt-comint-output-filter t t)
   (setq-local comint-input-sender 'mqtt-comint-input-sender))
 
-(defun mqtt-output-filter (string)
+(defun mqtt-comint-output-filter (string)
   (alert string)
-  (concat (propertize (format-time-string "[%y-%m-%d %H:%M:%S]") 'read-only t 'face 'font-lock-comment-face) ": " (string-trim string) "\n---> "))
+  (concat (propertize (format-time-string mqtt-timestamp-format) 'read-only t 'font-lock-face 'font-lock-comment-face)
+          (string-trim string)
+          "\n"
+          mqtt-comint-prompt))
 
 (defun mqtt-comint-input-sender (proc string)
   (mqtt-send-message string))
@@ -143,7 +154,8 @@
         (save-excursion
           ;; Insert the text, advancing the process marker.
           (goto-char (process-mark proc))
-          (insert string)
+          (insert (concat (propertize (format-time-string mqtt-timestamp-format) 'face 'font-lock-comment-face)
+                          string))
           (set-marker (process-mark proc) (point)))
         (if moving (goto-char (process-mark proc)))))
     (alert string)))
@@ -165,3 +177,15 @@
 
 (provide 'mqtt-mode)
 ;;; mqtt-mode.el ends here
+
+
+;; TODO
+;; - custom variable for -v
+;; - configurable prompt & comments
+;; - hook for messages
+;;   + alert via hook
+;; - better & configurable alert
+;; - send region function
+;; - support retain
+;; - support QoS level
+;; - support last will and testament??? -> probobaly makes no sense for emacs client
