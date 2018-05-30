@@ -6,7 +6,7 @@
 ;; Keywords: tools
 ;; Version: 0.1.0
 ;; URL: https://github.com/andrmuel/mqtt-mode
-;; Package-Requires: ((emacs "25"))
+;; Package-Requires: ((emacs "25") (dash "2.14.1"))
 
 ;; This program is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -28,6 +28,7 @@
 
 ;;; Code:
 
+(require 'dash)
 
 (defgroup mqtt nil
   "MQTT support."
@@ -39,51 +40,63 @@
 
 (defcustom mqtt-host "localhost"
   "MQTT server host name."
-  :package-version '(mqtt-mode . "0.1.0")
   :group 'mqtt
   :type 'string)
 
 (defcustom mqtt-port 1883
   "Port number of MQTT server."
-  :package-version '(mqtt-mode . "0.1.0")
   :group 'mqtt
   :type 'integer)
 
 (defcustom mqtt-username nil
   "User name for MQTT server."
-  :package-version '(mqtt-mode . "0.1.0")
   :group 'mqtt
-  :type 'string)
+  :type '(choice string (const nil)))
 
 (defcustom mqtt-password nil
   "Password for MQTT server."
-  :package-version '(mqtt-mode . "0.1.0")
   :group 'mqtt
-  :type 'string)
+  :type '(choice string (const nil)))
 
 (defcustom mqtt-subscribe-topic "#"
   "Topic to subscribe to."
-  :package-version '(mqtt-mode . "0.1.0")
   :group 'mqtt
   :type 'string)
 
-(defcustom mqtt-publish-topic ""
+(defcustom mqtt-publish-topic "emacs"
   "Topic to publish to."
-  :package-version '(mqtt-mode . "0.1.0")
   :group 'mqtt
   :type 'string)
+
+(defcustom mqtt-subscribe-qos-level 0
+  "Topic to publish to."
+  :group 'mqtt
+  :type 'integer)
+
+(defcustom mqtt-publish-qos-level 0
+  "Topic to publish to."
+  :group 'mqtt
+  :type 'integer)
+
+(defcustom mqtt-mosquitto-pub-arguments '()
+  "Additional arguments to mosquitto_pub."
+  :group 'mqtt
+  :type '(repeat string))
+
+(defcustom mqtt-mosquitto-sub-arguments '("-v")
+  "Additional arguments to mosquitto_sub."
+  :group 'mqtt
+  :type '(repeat string))
 
 (defcustom mqtt-timestamp-format "[%y-%m-%d %H:%M:%S]\n"
   "Format for timestamps for incoming messages (input for
 format-time-string)."
-  :package-version '(mqtt-mode . "0.1.0")
   :group 'mqtt
   :type 'string)
 
 (defcustom mqtt-comint-prompt "---> "
   "Format for timestamps for incoming messages (input for
 format-time-string)."
-  :package-version '(mqtt-mode . "0.1.0")
   :group 'mqtt
   :type 'string)
 
@@ -98,7 +111,8 @@ format-time-string)."
 
 (defun mqtt-comint-output-filter (string)
   (alert string)
-  (concat (propertize (format-time-string mqtt-timestamp-format) 'read-only t 'font-lock-face 'font-lock-comment-face)
+  (concat "\n"
+          (propertize (format-time-string mqtt-timestamp-format) 'read-only t 'font-lock-face 'font-lock-comment-face)
           (string-trim string)
           "\n"
           mqtt-comint-prompt))
@@ -106,35 +120,44 @@ format-time-string)."
 (defun mqtt-comint-input-sender (proc string)
   (mqtt-send-message string))
 
-
 (defun run-mqtt ()
   "Run an inferior instance of 'mosquitto_sub' inside Emacs to receive
   MQTT messages and use 'mosquitto_pub' to publish messages."
   (interactive)
-    (let ((buffer
-           (make-comint-in-buffer "mqtt-client" nil mqtt-sub-bin nil
-                                  "-v"
-                                  "-h" mqtt-host
-                                  "-p" (int-to-string mqtt-port)
-                                  ;; TODO username & password optional
-                                  "-u" mqtt-username
-                                  "-P" mqtt-password
-                                  "-t" mqtt-subscribe-topic)))
-      (with-current-buffer buffer
-        (display-buffer (current-buffer))
-        (mqtt-mode)
-        (setq-local header-line-format (format "MQTT client (host: %s; port: %d; subscribe topic: %s; publish topic: %s)" mqtt-host mqtt-port mqtt-subscribe-topic mqtt-publish-topic)))))
+  (let* ((args (append `("mqtt-client" ,nil ,mqtt-sub-bin ,nil)
+                       (-flatten `(,mqtt-mosquitto-sub-arguments
+                                   "-h" ,mqtt-host
+                                   "-p" ,(int-to-string mqtt-port)
+                                   ,(if (and mqtt-username mqtt-password)
+                                        `("-u" ,mqtt-username
+                                          "-P" ,mqtt-password))
+                                   "-t" ,mqtt-subscribe-topic
+                                   "-q" ,(int-to-string mqtt-subscribe-qos-level)))))
+         (buffer (apply #'make-comint-in-buffer args)))
+    (with-current-buffer buffer
+      (display-buffer (current-buffer))
+      (mqtt-mode)
+      (set-process-query-on-exit-flag (get-buffer-process (current-buffer)) nil)
+      (setq-local header-line-format
+                  (format "server: %s:%d topic: '%s' / '%s' qos level: %d / %d"
+                          mqtt-host
+                          mqtt-port
+                          mqtt-subscribe-topic
+                          mqtt-publish-topic
+                          mqtt-subscribe-qos-level
+                          mqtt-publish-qos-level)))))
 
 (defun mqtt-start-consumer ()
   (interactive)
-  (let ((command `(,mqtt-sub-bin
-                   "-v"
-                   "-h" ,mqtt-host
-                   "-p" ,(int-to-string mqtt-port)
-                   ;; TODO username & password optional
-                   "-u" ,mqtt-username
-                   "-P" ,mqtt-password
-                   "-t" ,mqtt-subscribe-topic))
+  (let ((command (-flatten `(,mqtt-sub-bin
+                             ,mqtt-mosquitto-sub-arguments
+                             "-h" ,mqtt-host
+                             "-p" ,(int-to-string mqtt-port)
+                             ,(if (and mqtt-username mqtt-password)
+                                  `("-u" ,mqtt-username
+                                    "-P" ,mqtt-password))
+                             "-t" ,mqtt-subscribe-topic
+                             "-q" ,(int-to-string mqtt-subscribe-qos-level))))
         (name "mqtt-consumer")
         (buffer "*mqtt-consumer*"))
     (let ((process
@@ -143,9 +166,10 @@ format-time-string)."
             :buffer "*mqtt-consumer*"
             :command command
             :filter 'mqtt-consumer-filter)))
+      (set-process-query-on-exit-flag process nil)
       (with-current-buffer (process-buffer process)
         (display-buffer (current-buffer))
-        (setq-local header-line-format (format "MQTT consumer (host: %s; port: %d; topic: %s)" mqtt-host mqtt-port mqtt-subscribe-topic))))))
+        (setq-local header-line-format (format "server: %s:%d subscribe topic: '%s'" mqtt-host mqtt-port mqtt-subscribe-topic))))))
 
 (defun mqtt-consumer-filter (proc string)
   (when (buffer-live-p (process-buffer proc))
@@ -162,30 +186,32 @@ format-time-string)."
 
 (defun mqtt-send-message (message &optional topic)
   (let* ((topic (if topic topic mqtt-publish-topic))
-         (command `(,mqtt-pub-bin
-                    "-h" ,mqtt-host
-                    "-p" ,(int-to-string mqtt-port)
-                    ;; TODO username & password optional
-                    "-u" ,mqtt-username
-                    "-P" ,mqtt-password
-                    "-t" ,topic
-                    "-m" ,message)))
+         (command (-flatten `(,mqtt-pub-bin
+                              ,mqtt-mosquitto-pub-arguments
+                              "-h" ,mqtt-host
+                              "-p" ,(int-to-string mqtt-port)
+                              ,(if (and mqtt-username mqtt-password)
+                                   `("-u" ,mqtt-username
+                                     "-P" ,mqtt-password))
+                              "-t" ,topic
+                              "-q" ,(int-to-string mqtt-publish-qos-level)
+                              "-m" ,message))))
     (make-process
      :name "mqtt-publisher"
      :command command
      :buffer "*mqtt-publisher*")))
+
+(defun mqtt-send-region (start end)
+  "Publish region contents as MQTT message."
+  (interactive "r")
+  (mqtt-send-message (buffer-substring start end)))
 
 (provide 'mqtt-mode)
 ;;; mqtt-mode.el ends here
 
 
 ;; TODO
-;; - custom variable for -v
-;; - configurable prompt & comments
+;; - initial prompt
 ;; - hook for messages
 ;;   + alert via hook
 ;; - better & configurable alert
-;; - send region function
-;; - support retain
-;; - support QoS level
-;; - support last will and testament??? -> probobaly makes no sense for emacs client
