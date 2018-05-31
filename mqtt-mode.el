@@ -106,6 +106,7 @@ format-time-string)."
 \\<mqtt-mode-map>"
   (setq-local comint-prompt-regexp (regexp-quote mqtt-comint-prompt))
   (setq-local comint-prompt-read-only t)
+  (comint-output-filter (get-buffer-process (current-buffer)) mqtt-comint-prompt) ; fake initial prompt
   (add-hook 'comint-preoutput-filter-functions 'mqtt-comint-output-filter t t)
   (setq-local comint-input-sender 'mqtt-comint-input-sender))
 
@@ -211,7 +212,6 @@ format-time-string)."
 
 
 ;; TODO
-;; - initial prompt
 ;; - hook for messages
 ;;   + alert via hook
 ;; - better & configurable alert
