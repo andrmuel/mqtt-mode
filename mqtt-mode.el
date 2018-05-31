@@ -170,19 +170,24 @@ format-time-string)."
       (set-process-query-on-exit-flag process nil)
       (with-current-buffer (process-buffer process)
         (display-buffer (current-buffer))
+        (read-only-mode 1)
         (setq-local header-line-format (format "server: %s:%d subscribe topic: '%s'" mqtt-host mqtt-port mqtt-subscribe-topic))))))
 
 (defun mqtt-consumer-filter (proc string)
   (when (buffer-live-p (process-buffer proc))
     (with-current-buffer (process-buffer proc)
-      (let ((moving (= (point) (process-mark proc))))
+      (let ((moving (= (point) (process-mark proc)))
+            (inhibit-read-only t))
         (save-excursion
           ;; Insert the text, advancing the process marker.
           (goto-char (process-mark proc))
           (insert (concat (propertize (format-time-string mqtt-timestamp-format) 'face 'font-lock-comment-face)
                           string))
           (set-marker (process-mark proc) (point)))
-        (if moving (goto-char (process-mark proc)))))
+        (when moving
+          (goto-char (process-mark proc))
+          (when (get-buffer-window)
+            (set-window-point (get-buffer-window) (process-mark proc))))))
     (alert string)))
 
 (defun mqtt-send-message (message &optional topic)
@@ -209,9 +214,3 @@ format-time-string)."
 
 (provide 'mqtt-mode)
 ;;; mqtt-mode.el ends here
-
-
-;; TODO
-;; - hook for messages
-;;   + alert via hook
-;; - better & configurable alert
