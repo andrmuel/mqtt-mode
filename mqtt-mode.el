@@ -100,6 +100,19 @@ format-time-string)."
   :group 'mqtt
   :type 'string)
 
+(defcustom mqtt-message-receive-functions '()
+  "List of functions to run when a new message is received (message is
+passed as argument). 
+
+Note: if both the mqtt-client and mqtt-consumer is active, each
+function will be run twice (which may be desirable if client and
+consumer are active for different topics, or undesirable).
+
+Example: `(add-to-list 'mqtt-message-receive-functions (lambda (msg) (alert msg)))`
+"
+  :group 'mqtt
+  :type '(repeat function))
+
 (define-derived-mode mqtt-mode comint-mode "MQTT Mode"
   "Major mode for MQTT interaction.
 
@@ -111,7 +124,7 @@ format-time-string)."
   (setq-local comint-input-sender 'mqtt-comint-input-sender))
 
 (defun mqtt-comint-output-filter (string)
-  (alert string)
+  (run-hook-with-args 'mqtt-message-receive-functions string)
   (concat "\n"
           (propertize (format-time-string mqtt-timestamp-format) 'read-only t 'font-lock-face 'font-lock-comment-face)
           (string-trim string)
@@ -188,7 +201,7 @@ format-time-string)."
           (goto-char (process-mark proc))
           (when (get-buffer-window)
             (set-window-point (get-buffer-window) (process-mark proc))))))
-    (alert string)))
+    (run-hook-with-args 'mqtt-message-receive-functions string)))
 
 (defun mqtt-send-message (message &optional topic)
   (let* ((topic (if topic topic mqtt-publish-topic))
