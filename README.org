@@ -13,13 +13,13 @@ are sometimes distributed as separate package.
 
 Debian:
 
-#+BEGIN_SRC sh :results verbatim
+#+BEGIN_SRC sh :dir /sudo:: :results verbatim
 apt install mosquitto-clients
 #+END_SRC
 
 Gentoo:
 
-#+BEGIN_SRC sh :results verbatim
+#+BEGIN_SRC sh :dir /sudo:: :results verbatim
 emerge mosquitto
 #+END_SRC
 
@@ -31,7 +31,6 @@ enable the major mode:
 #+BEGIN_SRC emacs-lisp
 (add-to-list 'load-path "~/path/to/mqtt-mode/")
 (require 'mqtt-mode)
-(mqtt-mode)
 #+END_SRC
 
 * Configuration
@@ -42,4 +41,10 @@ For configuration options, please look at the customization group
 - ~mqtt-port~ — port of MQTT server
 - ~mqtt-username~ — username for MQTT server
 - ~mqtt-password~ — password for MQTT server
-- ~mqtt-topic~ — topic to subscribe to
+- ~mqtt-subscribe-topic~ and ~mqtt-publish-topic~ — topics to subscribe and publish to
+
+* Usage
+
+You can either run the consumer with ~mqtt-start-consumer~ or run the
+comint based client with ~mqtt-run~. Messages can be sent with
+~mqtt-publish-message~.

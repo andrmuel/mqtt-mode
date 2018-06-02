@@ -1,4 +1,4 @@
-;;; mqtt-mode.el --- major mode and commands for interaction with MQTT servers  -*- lexical-binding: t; -*-
+;;; mqtt-mode.el --- client for interaction with MQTT servers  -*- lexical-binding: t; -*-
 
 ;; Copyright (C) 2018  Andreas Müller
 
@@ -6,7 +6,7 @@
 ;; Keywords: tools
 ;; Version: 0.1.0
 ;; URL: https://github.com/andrmuel/mqtt-mode
-;; Package-Requires: ((emacs "25") (dash "2.14.1"))
+;; Package-Requires: ((emacs "25") (dash "2.12.0"))
 
 ;; This program is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -89,27 +89,28 @@
   :type '(repeat string))
 
 (defcustom mqtt-timestamp-format "[%y-%m-%d %H:%M:%S]\n"
-  "Format for timestamps for incoming messages (input for
-format-time-string)."
+  "Format for timestamps for incoming messages.
+
+Used as input for 'format-time-string'."
   :group 'mqtt
   :type 'string)
 
 (defcustom mqtt-comint-prompt "---> "
-  "Format for timestamps for incoming messages (input for
-format-time-string)."
+  "Promt string for comint based interface."
   :group 'mqtt
   :type 'string)
 
 (defcustom mqtt-message-receive-functions '()
-  "List of functions to run when a new message is received (message is
-passed as argument). 
+  "List of functions to run when a new message is received.
+
+The message is passed as first argument (message is passed as
+argument).
 
 Note: if both the mqtt-client and mqtt-consumer is active, each
 function will be run twice (which may be desirable if client and
 consumer are active for different topics, or undesirable).
 
-Example: `(add-to-list 'mqtt-message-receive-functions (lambda (msg) (alert msg)))`
-"
+Example: `(add-to-list 'mqtt-message-receive-functions (lambda (msg) (alert msg)))`"
   :group 'mqtt
   :type '(repeat function))
 
@@ -124,6 +125,9 @@ Example: `(add-to-list 'mqtt-message-receive-functions (lambda (msg) (alert msg)
   (setq-local comint-input-sender 'mqtt-comint-input-sender))
 
 (defun mqtt-comint-output-filter (string)
+  "Filter for incoming messages (to add timestamp and fake prompt).
+
+The message is passed as STRING."
   (run-hook-with-args 'mqtt-message-receive-functions string)
   (concat "\n"
           (propertize (format-time-string mqtt-timestamp-format) 'read-only t 'font-lock-face 'font-lock-comment-face)
@@ -132,11 +136,14 @@ Example: `(add-to-list 'mqtt-message-receive-functions (lambda (msg) (alert msg)
           mqtt-comint-prompt))
 
 (defun mqtt-comint-input-sender (proc string)
-  (mqtt-send-message string))
+  "Function to send STRING messages from PROC."
+  (mqtt-publish-message string))
 
-(defun run-mqtt ()
-  "Run an inferior instance of 'mosquitto_sub' inside Emacs to receive
-  MQTT messages and use 'mosquitto_pub' to publish messages."
+(defun mqtt-run ()
+  "Start comit based MQTT client.
+
+Runs an inferior instance of 'mosquitto_sub' inside Emacs to receive
+MQTT messages and uses 'mosquitto_pub' to publish messages."
   (interactive)
   (let* ((args (append `("mqtt-client" ,nil ,mqtt-sub-bin ,nil)
                        (-flatten `(,mqtt-mosquitto-sub-arguments
@@ -162,6 +169,10 @@ Example: `(add-to-list 'mqtt-message-receive-functions (lambda (msg) (alert msg)
                           mqtt-publish-qos-level)))))
 
 (defun mqtt-start-consumer ()
+  "Start MQTT consumer.
+
+The consumer subscribes to 'mqtt-subscribe-topic' and shows incoming
+messages."
   (interactive)
   (let ((command (-flatten `(,mqtt-sub-bin
                              ,mqtt-mosquitto-sub-arguments
@@ -187,6 +198,7 @@ Example: `(add-to-list 'mqtt-message-receive-functions (lambda (msg) (alert msg)
         (setq-local header-line-format (format "server: %s:%d subscribe topic: '%s'" mqtt-host mqtt-port mqtt-subscribe-topic))))))
 
 (defun mqtt-consumer-filter (proc string)
+  "Input filter for mqtt-consumer (filters STRING messages from PROC)."
   (when (buffer-live-p (process-buffer proc))
     (with-current-buffer (process-buffer proc)
       (let ((moving (= (point) (process-mark proc)))
@@ -203,7 +215,8 @@ Example: `(add-to-list 'mqtt-message-receive-functions (lambda (msg) (alert msg)
             (set-window-point (get-buffer-window) (process-mark proc))))))
     (run-hook-with-args 'mqtt-message-receive-functions string)))
 
-(defun mqtt-send-message (message &optional topic)
+(defun mqtt-publish-message (message &optional topic)
+  "Publish given MESSAGE to given TOPIC (default: use 'mqtt-publish-topic')."
   (let* ((topic (if topic topic mqtt-publish-topic))
          (command (-flatten `(,mqtt-pub-bin
                               ,mqtt-mosquitto-pub-arguments
@@ -220,10 +233,10 @@ Example: `(add-to-list 'mqtt-message-receive-functions (lambda (msg) (alert msg)
      :command command
      :buffer "*mqtt-publisher*")))
 
-(defun mqtt-send-region (start end)
-  "Publish region contents as MQTT message."
+(defun mqtt-publish-region (start end)
+  "Publish region contents (START to END) as MQTT message."
   (interactive "r")
-  (mqtt-send-message (buffer-substring start end)))
+  (mqtt-publish-message (buffer-substring start end)))
 
 (provide 'mqtt-mode)
 ;;; mqtt-mode.el ends here
