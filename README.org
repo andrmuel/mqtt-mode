@@ -3,13 +3,13 @@
 
 * Overview
 
-mqtt-mode provides a major mode for interaction with MQTT servers.
+~mqtt-mode~ provides a major mode for interaction with MQTT servers.
 
 * Dependencies
 
 This mode makes use of ~mosquitto_pub~ and ~mosquitto_sub~ from the
-[[https://mosquitto.org/][Mosquitto]] MQTT server. Therefore ~mosquitto~ must be installed. They
-are sometimes distributed as separate package.
+[[https://mosquitto.org/][Mosquitto]] MQTT server. Therefore ~mosquitto~ must be installed. The
+binaries are sometimes distributed as separate package.
 
 Debian:
 
@@ -25,8 +25,7 @@ emerge mosquitto
 
 * Installation
 
-To use this mode, add the repository to your load path, load it and
-enable the major mode:
+To install this mode, add the repository to your load path and load it:
 
 #+BEGIN_SRC emacs-lisp
 (add-to-list 'load-path "~/path/to/mqtt-mode/")
@@ -36,7 +35,7 @@ enable the major mode:
 * Configuration
 
 For configuration options, please look at the customization group
-~mqtt-mode~. Most importantly, you should probably configure
+~mqtt~. Most importantly, you should probably configure
 - ~mqtt-host~ — host name of MQTT server
 - ~mqtt-port~ — port of MQTT server
 - ~mqtt-username~ — username for MQTT server
@@ -47,4 +46,4 @@ For configuration options, please look at the customization group
 
 You can either run the consumer with ~mqtt-start-consumer~ or run the
 comint based client with ~mqtt-run~. Messages can be sent with
-~mqtt-publish-message~.
+~mqtt-publish-message~ and ~mqtt-publish-region~.

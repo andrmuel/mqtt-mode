@@ -28,6 +28,8 @@
 
 ;;; Code:
 
+(require 'comint)
+(require 'subr-x)
 (require 'dash)
 
 (defgroup mqtt nil
@@ -137,6 +139,7 @@ The message is passed as STRING."
 
 (defun mqtt-comint-input-sender (proc string)
   "Function to send STRING messages from PROC."
+  (ignore proc)
   (mqtt-publish-message string))
 
 (defun mqtt-run ()
@@ -187,8 +190,8 @@ messages."
         (buffer "*mqtt-consumer*"))
     (let ((process
            (make-process
-            :name "mqtt-consumer"
-            :buffer "*mqtt-consumer*"
+            :name name
+            :buffer buffer
             :command command
             :filter 'mqtt-consumer-filter)))
       (set-process-query-on-exit-flag process nil)
