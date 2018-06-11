@@ -142,6 +142,7 @@ The message is passed as STRING."
   (ignore proc)
   (mqtt-publish-message string))
 
+;;;###autoload
 (defun mqtt-run ()
   "Start comit based MQTT client.
 
@@ -171,6 +172,7 @@ MQTT messages and uses 'mosquitto_pub' to publish messages."
                           mqtt-subscribe-qos-level
                           mqtt-publish-qos-level)))))
 
+;;;###autoload
 (defun mqtt-start-consumer ()
   "Start MQTT consumer.
 
@@ -218,6 +220,7 @@ messages."
             (set-window-point (get-buffer-window) (process-mark proc))))))
     (run-hook-with-args 'mqtt-message-receive-functions string)))
 
+;;;###autoload
 (defun mqtt-publish-message (message &optional topic)
   "Publish given MESSAGE to given TOPIC (default: use 'mqtt-publish-topic')."
   (let* ((topic (if topic topic mqtt-publish-topic))
@@ -236,6 +239,7 @@ messages."
      :command command
      :buffer "*mqtt-publisher*")))
 
+;;;###autoload
 (defun mqtt-publish-region (start end)
   "Publish region contents (START to END) as MQTT message."
   (interactive "r")
